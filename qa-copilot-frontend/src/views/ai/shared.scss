@@ -1,0 +1,77 @@
+.ai-status-filter {
+  width: 132px;
+}
+
+.ai-identity-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.ai-identity-icon {
+  display: inline-flex;
+  flex: 0 0 32px;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  background: var(--el-fill-color);
+  color: var(--el-text-color-secondary);
+  font-size: 17px;
+}
+
+.ai-identity-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.ai-identity-copy strong {
+  overflow: hidden;
+  color: var(--el-text-color-primary);
+  font-size: 13px;
+  font-weight: 550;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-identity-copy small {
+  overflow: hidden;
+  margin-top: 2px;
+  color: var(--el-text-color-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-name-line {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.ai-code,
+.ai-number {
+  color: var(--el-text-color-regular);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ai-secondary {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+@media (max-width: 700px) {
+  .manage-table-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

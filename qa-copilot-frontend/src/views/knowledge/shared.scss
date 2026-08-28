@@ -1,0 +1,57 @@
+.knowledge-stat {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.knowledge-page-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.knowledge-mobile-list {
+  min-height: 280px;
+  padding: 10px;
+}
+
+.knowledge-mobile-card {
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: var(--el-bg-color);
+  padding: 12px;
+}
+
+.knowledge-mobile-card + .knowledge-mobile-card {
+  margin-top: 10px;
+}
+
+.knowledge-mobile-head,
+.knowledge-mobile-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.knowledge-mobile-description {
+  margin: 9px 0;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.knowledge-mobile-foot {
+  margin-top: 10px;
+  border-top: 1px solid var(--el-border-color-extra-light);
+  padding-top: 8px;
+  color: var(--el-text-color-secondary);
+  font-size: 11px;
+}
+
+@media (max-width: 700px) {
+  .knowledge-mobile-foot .table-row-actions {
+    gap: 0;
+  }
+}

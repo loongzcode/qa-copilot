@@ -1,0 +1,38 @@
+# Local secrets
+**/.env
+!**/.env.example
+
+# Python
+**/.venv/
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+**/.coverage
+
+# Node.js
+**/node_modules/
+**/dist/
+**/coverage/
+
+# Runtime data
+**/data/
+**/logs/
+**/*.log
+**/celerybeat-schedule*
+
+# IDE / OS
+**/.idea/
+**/.vscode/
+**/.DS_Store
+**/Thumbs.db
+
+# Internal materials intentionally excluded from the public source tree
+**/docs/
+**/artifacts/
+**/evaluation_data/
+**/IMPLEMENTATION_CHECKLIST.md
+
+# Internal development, evaluation and maintenance tools
+qa-copilot-backend/scripts/

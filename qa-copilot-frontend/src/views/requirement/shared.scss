@@ -1,0 +1,216 @@
+.requirement-page {
+  height: 100%;
+  min-height: 600px;
+}
+
+.requirement-card {
+  height: 100%;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgb(15 23 42 / 4%);
+}
+
+.requirement-card > .el-card__header {
+  padding: 14px 16px;
+}
+
+.requirement-header,
+.requirement-toolbar,
+.requirement-header-actions,
+.requirement-inline-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.requirement-header {
+  justify-content: space-between;
+}
+
+.requirement-heading h2 {
+  margin: 0;
+  color: var(--el-text-color-primary);
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.requirement-heading p {
+  margin: 4px 0 0;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.requirement-toolbar {
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  padding: 12px 16px;
+}
+
+.requirement-toolbar .project-select {
+  width: 220px;
+}
+
+.requirement-toolbar .search-input {
+  width: min(320px, 100%);
+}
+
+.requirement-table-wrap {
+  height: calc(100% - 126px);
+  min-height: 360px;
+}
+
+.requirement-title-cell {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.requirement-title-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: rgb(var(--primary-color) / 9%);
+  color: rgb(var(--primary-color));
+  font-size: 18px;
+}
+
+.requirement-title-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.requirement-title-copy strong {
+  overflow: hidden;
+  color: var(--el-text-color-primary);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.requirement-title-copy small,
+.requirement-muted {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.requirement-progress {
+  display: flex;
+  min-width: 110px;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.requirement-footer {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid var(--el-border-color-lighter);
+  padding: 12px 16px;
+}
+
+.requirement-mobile-list {
+  padding: 12px;
+}
+
+.requirement-mobile-card {
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 10px;
+  background: var(--el-bg-color);
+  padding: 13px;
+}
+
+.requirement-mobile-card + .requirement-mobile-card {
+  margin-top: 10px;
+}
+
+.requirement-mobile-head,
+.requirement-mobile-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.requirement-mobile-card h3 {
+  margin: 10px 0 4px;
+  font-size: 14px;
+}
+
+.requirement-mobile-card p {
+  margin: 0;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.requirement-mobile-foot {
+  margin-top: 12px;
+  border-top: 1px solid var(--el-border-color-extra-light);
+  padding-top: 9px;
+}
+
+.requirement-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.requirement-stat-card {
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 10px;
+  background: var(--el-fill-color-extra-light);
+  padding: 14px;
+}
+
+.requirement-stat-card span {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.requirement-stat-card strong {
+  display: block;
+  margin-top: 7px;
+  font-size: 24px;
+}
+
+@media (max-width: 700px) {
+  .requirement-page {
+    height: auto;
+  }
+
+  .requirement-header,
+  .requirement-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .requirement-header-actions,
+  .requirement-toolbar .project-select,
+  .requirement-toolbar .search-input,
+  .requirement-toolbar .el-select,
+  .requirement-toolbar .el-button {
+    width: 100%;
+  }
+
+  .requirement-header-actions .el-button {
+    flex: 1;
+  }
+
+  .requirement-table-wrap {
+    height: auto;
+    min-height: 320px;
+  }
+
+  .requirement-footer {
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
+
+  .requirement-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

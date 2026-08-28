@@ -1,0 +1,72 @@
+.tool-page {
+  height: 100%;
+  min-height: 0;
+}
+.tool-card {
+  height: 100%;
+}
+.tool-card :deep(.el-card__body) {
+  height: calc(100% - 70px);
+  overflow: auto;
+}
+.tool-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.tool-heading h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.tool-heading p {
+  margin: 5px 0 0;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+.tool-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.tool-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.tool-empty {
+  padding: 48px 0;
+}
+.tool-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+.tool-json {
+  max-height: 360px;
+  overflow: auto;
+  border-radius: 8px;
+  background: var(--el-fill-color-light);
+  padding: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+@media (max-width: 700px) {
+  .tool-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .tool-actions,
+  .tool-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .tool-actions > *,
+  .tool-toolbar > * {
+    width: 100% !important;
+  }
+}
