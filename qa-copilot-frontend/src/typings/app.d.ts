@@ -633,6 +633,7 @@ declare namespace App {
               queryRewrite: string;
               requirementAnalysis: string;
               supervisorPlanning: string;
+              dataQuery: string;
               coverageAnalysis: string;
               embedding: string;
               rerank: string;

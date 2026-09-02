@@ -40,6 +40,18 @@ export function fetchUpdateFileTemplate(
     data
   });
 }
+export function fetchGenerateAIFileRecords(
+  projectId: number,
+  templateId: number,
+  data: Api.ToolManage.AIFileRecordsGenerateParams
+) {
+  return request<Api.ToolManage.AIFileRecordsPreview>({
+    url: `/projects/${projectId}/file-templates/${templateId}/ai-records`,
+    method: 'post',
+    data,
+    timeout: 120000
+  });
+}
 export function fetchCreateToolTask(projectId: number, data: Api.ToolManage.TaskCreateParams) {
   return request<Api.ToolManage.Task>({ url: `/projects/${projectId}/tool-tasks`, method: 'post', data });
 }

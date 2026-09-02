@@ -64,6 +64,25 @@ def test_file_validation_reports_row_and_field() -> None:
     }
 
 
+def test_file_validation_accepts_business_date_format() -> None:
+    """页面的 YYYY-MM-DD 格式应能校验标准日期，不要求业务用户填写 Python 百分号格式。"""
+    normalized, errors = validate_records(
+        [{"loanDate": "2026-09-01"}],
+        [
+            {
+                "name": "借款日期",
+                "sourceField": "loanDate",
+                "dataType": "DATE",
+                "required": True,
+                "format": "YYYY-MM-DD",
+            }
+        ],
+    )
+
+    assert errors == []
+    assert normalized == [{"借款日期": "2026-09-01"}]
+
+
 def test_mysql_compare_generates_add_column_and_warning() -> None:
     """缺少字段生成 ADD，字段变化生成 MODIFY 并突出风险。"""
     source = {

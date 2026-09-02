@@ -6,20 +6,26 @@ import asyncio
 import hashlib
 import json
 import os
+import re
 import tempfile
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from langchain_core.prompts import ChatPromptTemplate
+
 from app.automation.controlled_ui_runner import UIAutomationSpecDTO, execute_playwright_ui
-from app.core.constants import ToolRisk, ToolTaskStatus, ToolTaskType
+from app.core.constants import AIModelTaskType, ToolRisk, ToolTaskStatus, ToolTaskType
 from app.core.security import decrypt_secret, encrypt_secret
 from app.exceptions import BadRequestException, ConflictException, NotFoundException
 from app.models import ExternalConnection, ToolArtifact, ToolExecutionLog, ToolTask, User
 from app.models.mixins import utc_now
+from app.repositories.ai_model_repository import AIModelRepository
 from app.repositories.test_projects_repository import TestProjectsRepository
 from app.repositories.tool_center_repository import ToolCenterRepository
-from app.schemas.vo.tool_center import ToolTaskVO
+from app.schemas.dto.ai_usage_logs import AIUsageContextDTO
+from app.schemas.dto.tool_center import AIFileRecordsGenerateDTO
+from app.schemas.vo.tool_center import AIFileRecordsPreviewVO, ToolTaskVO
 from app.services.tool_center_service import ToolCenterService
 from app.storage.base import DocumentStorage
 from app.tools.defect_tools import DefectPlatformClient, build_defect_payload
@@ -31,6 +37,7 @@ from app.tools.mysql_tools import (
     execute_mysql_rollback,
 )
 from app.tools.nacos_tools import NacosClient, compare_nacos_content, content_hash
+from app.utils.ai_client_util import generate_text_with_langchain
 
 
 class ToolExecutionService:
@@ -43,12 +50,134 @@ class ToolExecutionService:
     """
 
     def __init__(
-        self, repository: ToolCenterRepository, project_repository: TestProjectsRepository, storage: DocumentStorage
+        self,
+        repository: ToolCenterRepository,
+        project_repository: TestProjectsRepository,
+        storage: DocumentStorage,
+        ai_model_repository: AIModelRepository,
     ) -> None:
         self.repository = repository
         self.project_repository = project_repository
         self.storage = storage
+        self.ai_model_repository = ai_model_repository
         self.center_service = ToolCenterService(repository, project_repository)
+
+    async def generate_ai_file_records(
+        self,
+        project_id: int,
+        template_id: int,
+        payload: AIFileRecordsGenerateDTO,
+        current_user: User,
+    ) -> AIFileRecordsPreviewVO:
+        """读取模板后用 AI 生成合成测试记录，并用固定规则再次校验。
+
+        功能：把用户提供的数量、场景和约束转换为模板字段对应的 JSON 记录。
+        作用：位于自然语言输入和 file.generate 固定执行器之间，避免用户手写所有字段。
+        为什么用它：模型只负责构造候选数据；最终是否合格仍由 validate_records 决定，
+        这样日期、必填和精度等规则不会因为模型“认为正确”而被绕过。
+        """
+        await self.center_service._require_project(project_id, current_user)
+        template = await self.repository.get_template(project_id, template_id)
+        if template is None or not template.enabled:
+            raise NotFoundException("文件模板不存在或已停用")
+        model = await self.ai_model_repository.get_default_model()
+        if model is None or not model.enabled or not model.provider.enabled:
+            raise BadRequestException("未配置可用的默认 AI 模型")
+        supported_tasks = set(model.task_types or [])
+        if not supported_tasks.intersection(
+            {AIModelTaskType.TEST_CASE_GENERATION.value, AIModelTaskType.SUPERVISOR_PLANNING.value}
+        ):
+            raise BadRequestException("默认模型需要支持测试用例生成或 Supervisor 规划")
+        generation_task_type = (
+            AIModelTaskType.TEST_CASE_GENERATION.value
+            if AIModelTaskType.TEST_CASE_GENERATION.value in supported_tasks
+            else AIModelTaskType.SUPERVISOR_PLANNING.value
+        )
+
+        field_rules = [
+            {
+                "name": field.get("name"),
+                "source_field": field.get("sourceField"),
+                "data_type": field.get("dataType"),
+                "required": field.get("required", False),
+                "length": field.get("length"),
+                "precision": field.get("precision"),
+                "format": field.get("format"),
+            }
+            for field in template.fields
+        ]
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                (
+                    "system",
+                    "你是测试数据生成器。只生成合成测试数据，不得输出真实个人信息。"
+                    # ChatPromptTemplate 会把单花括号识别为运行变量；双花括号表示这里是 JSON 示例文本。
+                    "必须严格返回 JSON 对象 {{\"records\": [...]}}，不要输出 Markdown 或解释。"
+                    "每条记录只能使用字段规则中的 source_field 作为键。",
+                ),
+                (
+                    "human",
+                    "模板字段规则：\n{field_rules}\n\n生成数量：{count}\n"
+                    "场景分布：{scenarios}\n补充约束：{constraints}\n"
+                    "请保证日期、数据类型、必填和小数精度符合字段规则。",
+                ),
+            ]
+        )
+        last_errors: list[dict[str, Any]] = []
+        generation = None
+        for _attempt in range(2):
+            generation = await generate_text_with_langchain(
+                repository=self.ai_model_repository,
+                provider=model.provider,
+                model=model,
+                chat_prompt=prompt,
+                input_variables={
+                    "field_rules": json.dumps(field_rules, ensure_ascii=False),
+                    "count": payload.count,
+                    "scenarios": payload.scenarios,
+                    "constraints": payload.constraints
+                    + (
+                        "\n上次校验错误，请修复："
+                        + json.dumps(last_errors[:20], ensure_ascii=False)
+                        if last_errors
+                        else ""
+                    ),
+                },
+                task_type=generation_task_type,
+                max_output_tokens=8192,
+                reasoning_effort="minimal",
+                usage_context=AIUsageContextDTO(
+                    user_id=current_user.id,
+                    project_id=project_id,
+                    task_id=f"file-template:{template_id}:ai-records",
+                ),
+            )
+            raw = generation.content.strip()
+            fenced = re.fullmatch(r"```(?:json)?\s*(.*?)\s*```", raw, flags=re.IGNORECASE | re.DOTALL)
+            if fenced:
+                raw = fenced.group(1)
+            try:
+                parsed = json.loads(raw)
+                records = parsed.get("records") if isinstance(parsed, dict) else None
+            except json.JSONDecodeError:
+                records = None
+            if not isinstance(records, list) or len(records) != payload.count or any(
+                not isinstance(item, dict) for item in records
+            ):
+                last_errors = [{"message": f"模型必须返回恰好 {payload.count} 条对象记录"}]
+                continue
+            _, last_errors = validate_records(records, template.fields)
+            if not last_errors:
+                return AIFileRecordsPreviewVO(
+                    records=records,
+                    validation_errors=[],
+                    model_id=model.id,
+                    input_tokens=generation.input_tokens,
+                    output_tokens=generation.output_tokens,
+                )
+        raise BadRequestException(
+            "AI 两次生成后仍未通过模板校验：" + "；".join(str(item.get("message", item)) for item in last_errors[:5])
+        )
 
     async def _require_task(self, project_id: int, task_id: int, current_user: User, *, lock: bool = False) -> ToolTask:
         await self.center_service._require_project(project_id, current_user)

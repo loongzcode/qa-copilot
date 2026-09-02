@@ -88,6 +88,7 @@ function getTaskTypeLabel(taskType: string) {
     requirement_analysis: $t('page.ai.model.taskTypeOptions.requirementAnalysis'),
     coverage_analysis: $t('page.ai.model.taskTypeOptions.coverageAnalysis'),
     supervisor_planning: $t('page.ai.model.taskTypeOptions.supervisorPlanning'),
+    data_query: $t('page.ai.model.taskTypeOptions.dataQuery'),
     embedding: $t('page.ai.model.taskTypeOptions.embedding'),
     rerank: $t('page.ai.model.taskTypeOptions.rerank')
   };

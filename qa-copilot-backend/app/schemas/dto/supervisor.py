@@ -48,6 +48,13 @@ class SupervisorCreateRunDTO(CamelModel):
 
     goal: str = Field(min_length=1, max_length=2000)
     business_context: dict[str, Any] = Field(default_factory=dict)
+    session_id: int | None = Field(default=None, gt=0)
+
+
+class SupervisorCreateSessionDTO(CamelModel):
+    """创建聊天会话；标题为空时由第一条目标自动生成。"""
+
+    title: str = Field(default="新会话", min_length=1, max_length=120)
 
 
 class SupervisorApprovalDTO(CamelModel):

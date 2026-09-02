@@ -39,6 +39,7 @@ dependencies = [
   "croniter>=6.0",
   "playwright>=1.55",
   "PyYAML>=6.0",
+  "sqlglot>=27.0",
 ]
 
 [project.optional-dependencies]

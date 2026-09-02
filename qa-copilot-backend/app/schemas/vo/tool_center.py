@@ -45,6 +45,16 @@ class FileTemplateVO(CamelModel):
     updated_at: datetime
 
 
+class AIFileRecordsPreviewVO(CamelModel):
+    """AI 合成记录及确定性模板校验结果。"""
+
+    records: list[dict[str, Any]]
+    validation_errors: list[dict[str, Any]] = Field(default_factory=list)
+    model_id: int
+    input_tokens: int = 0
+    output_tokens: int = 0
+
+
 class ToolApprovalVO(CamelModel):
     id: int
     requester_id: int | None

@@ -3,6 +3,7 @@
 from typing import Annotated
 
 from app.core.deps import DbSession
+from app.repositories.ai_model_repository import AIModelRepository
 from app.repositories.test_projects_repository import TestProjectsRepository
 from app.repositories.tool_center_repository import ToolCenterRepository
 from app.services.tool_center_service import ToolCenterService
@@ -25,6 +26,7 @@ def get_tool_execution_service(db: DbSession) -> ToolExecutionService:
         ToolCenterRepository(db),
         TestProjectsRepository(db),
         get_document_storage(),
+        AIModelRepository(db),
     )
 
 

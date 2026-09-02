@@ -11,6 +11,7 @@ from app.api.auth_api import router as auth_router
 from app.api.automation_definitions_api import router as automation_definitions_router
 from app.api.automation_execution_tasks_api import router as automation_execution_tasks_router
 from app.api.automation_schedules_api import router as automation_schedules_router
+from app.api.data_query_api import router as data_query_router
 from app.api.knowledge_base_api import router as knowledge_base_router
 from app.api.knowledge_chat_api import router as knowledge_chat_router
 from app.api.knowledge_document_api import router as knowledge_document_router
@@ -102,6 +103,7 @@ app.include_router(test_projects_router, prefix=settings.api_prefix)
 app.include_router(test_project_members_router, prefix=settings.api_prefix)
 app.include_router(test_modules_router, prefix=settings.api_prefix)
 app.include_router(test_environments_router, prefix=settings.api_prefix)
+app.include_router(data_query_router, prefix=settings.api_prefix)
 
 app.include_router(knowledge_base_router, prefix=settings.api_prefix)
 app.include_router(knowledge_document_router, prefix=settings.api_prefix)

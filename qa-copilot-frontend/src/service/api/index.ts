@@ -1,5 +1,6 @@
 export * from './auth';
 export * from './automation-manage';
+export * from './data-query';
 export * from './tool-manage';
 export * from './ai-manage';
 export * from './knowledge-manage';

@@ -102,6 +102,7 @@ declare module "@elegant-router/types" {
     "plugin_typeit": "/plugin/typeit";
     "plugin_video": "/plugin/video";
     "project": "/project";
+    "project_data-query": "/project/data-query";
     "project_environments": "/project/environments";
     "project_info": "/project/info";
     "project_members": "/project/members";
@@ -255,6 +256,7 @@ declare module "@elegant-router/types" {
     | "plugin_tables_vtable"
     | "plugin_typeit"
     | "plugin_video"
+    | "project_data-query"
     | "project_environments"
     | "project_info"
     | "project_members"

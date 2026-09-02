@@ -66,9 +66,25 @@ function open(row?: Api.ToolManage.FileTemplate) {
           fileFormat: row.fileFormat,
           encoding: row.encoding,
           delimiter: row.delimiter,
-          fields: structuredClone(row.fields),
-          headerConfig: structuredClone(row.headerConfig),
-          trailerConfig: structuredClone(row.trailerConfig),
+          // records 保存在 ref 中，Vue 会把列表对象包装成 Proxy。
+          // structuredClone() 无法克隆 Proxy，所以之前点击编辑会在这里直接抛错，
+          // visible 还没有变成 true，用户看到的现象就是“点击没有反应”。
+          // 显式组装字段对象既能去掉 Proxy，也能隔离编辑表单与列表数据，
+          // 避免用户尚未保存时列表内容就跟着发生变化。
+          fields: row.fields.map(field => ({
+            name: field.name,
+            sourceField: field.sourceField,
+            dataType: field.dataType,
+            required: field.required,
+            length: field.length,
+            precision: field.precision,
+            format: field.format,
+            padding: field.padding,
+            paddingChar: field.paddingChar,
+            mapping: { ...field.mapping }
+          })),
+          headerConfig: { ...row.headerConfig },
+          trailerConfig: { ...row.trailerConfig },
           enabled: row.enabled
         }
       : {
@@ -94,16 +110,46 @@ async function save() {
   if (!projectId.value || !form.name.trim()) return window.$message?.warning('请填写模板名称');
   if (form.fields.some(item => !item.name.trim() || !item.sourceField.trim()))
     return window.$message?.warning('请补全字段名称和来源字段');
+
+  // Vue 的 reactive() 会把表单和字段数组包装成 Proxy。
+  // structuredClone() 不能直接克隆 Proxy，之前会在请求发出前抛错，
+  // 导致 saving 一直停留在 true，页面表现为“保存模板”持续转圈。
+  // 这里逐项组装普通 JSON 对象，同时顺手清理用户输入两端的空格。
+  const payload: Api.ToolManage.FileTemplateParams = {
+    name: form.name.trim(),
+    fileFormat: form.fileFormat,
+    encoding: form.encoding,
+    delimiter: form.delimiter?.trim() || null,
+    fields: form.fields.map(item => ({
+      name: item.name.trim(),
+      sourceField: item.sourceField.trim(),
+      dataType: item.dataType,
+      required: item.required,
+      length: item.length,
+      precision: item.precision,
+      format: item.format?.trim() || null,
+      padding: item.padding,
+      paddingChar: item.paddingChar,
+      mapping: { ...item.mapping }
+    })),
+    headerConfig: { ...form.headerConfig },
+    trailerConfig: { ...form.trailerConfig },
+    enabled: form.enabled
+  };
+
   saving.value = true;
-  const payload = structuredClone({ ...form, name: form.name.trim(), delimiter: form.delimiter || null });
-  const result = editing.value
-    ? await fetchUpdateFileTemplate(projectId.value, editing.value.id, payload)
-    : await fetchCreateFileTemplate(projectId.value, payload);
-  saving.value = false;
-  if (result.error) return;
-  visible.value = false;
-  window.$message?.success(editing.value ? '模板已更新' : '模板已创建');
-  await loadData();
+  try {
+    const result = editing.value
+      ? await fetchUpdateFileTemplate(projectId.value, editing.value.id, payload)
+      : await fetchCreateFileTemplate(projectId.value, payload);
+    if (result.error) return;
+    visible.value = false;
+    window.$message?.success(editing.value ? '模板已更新' : '模板已创建');
+    await loadData();
+  } finally {
+    // 请求成功、业务报错或网络异常时都必须恢复按钮，避免页面永久处于加载状态。
+    saving.value = false;
+  }
 }
 watch(projectId, loadData);
 onMounted(loadData);

@@ -72,6 +72,15 @@ class Settings(BaseSettings):
     # MySQL、Nacos 和业务 API 默认拒绝私网/回环；企业内网和本地联调需显式放行。
     tool_allowed_private_networks: list[str] = Field(default_factory=list)
     tool_allow_loopback: bool = False
+    # Text-to-SQL（自然语言转 SQL）查询的服务端硬限制；前端传值不能突破这些上限。
+    data_query_default_timeout_seconds: int = Field(default=30, ge=1, le=300)
+    data_query_max_timeout_seconds: int = Field(default=60, ge=1, le=600)
+    data_query_default_row_limit: int = Field(default=200, ge=1, le=5000)
+    data_query_max_row_limit: int = Field(default=1000, ge=1, le=10000)
+    data_query_max_result_bytes: int = Field(default=2 * 1024 * 1024, ge=1024, le=20 * 1024 * 1024)
+    data_query_max_generation_retries: int = Field(default=2, ge=0, le=5)
+    data_query_max_metadata_tables: int = Field(default=500, ge=1, le=5000)
+    data_query_explain_row_threshold: int = Field(default=1_000_000, ge=1, le=1_000_000_000)
     # 单次自动化任务允许的默认和最大总执行时间；每个请求还有定义内的独立超时。
     automation_execution_default_timeout_seconds: int = Field(default=300, ge=10, le=3600)
     automation_execution_max_timeout_seconds: int = Field(default=1800, ge=30, le=7200)

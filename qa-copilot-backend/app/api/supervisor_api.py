@@ -9,10 +9,39 @@ from app.core.constants import SupervisorRunStatus
 from app.core.deps import CurrentUser, RequestId, get_permission_codes, require_permission
 from app.core.permissions import Permission
 from app.schemas.api_result import ApiResult, PageResult, success
-from app.schemas.dto.supervisor import SupervisorApprovalDTO, SupervisorCreateRunDTO
-from app.schemas.vo.supervisor import SupervisorRunDetailVO, SupervisorRunVO
+from app.schemas.dto.supervisor import SupervisorApprovalDTO, SupervisorCreateRunDTO, SupervisorCreateSessionDTO
+from app.schemas.vo.supervisor import SupervisorRunDetailVO, SupervisorRunVO, SupervisorSessionVO
 
 router = APIRouter(prefix="/supervisor", tags=["Supervisor Agent"])
+
+
+@router.post(
+    "/projects/{project_id}/sessions",
+    response_model=ApiResult[SupervisorSessionVO],
+    dependencies=[Depends(require_permission(Permission.SUPERVISOR_RUN))],
+)
+async def create_supervisor_session(
+    payload: SupervisorCreateSessionDTO,
+    current_user: CurrentUser,
+    service: SupervisorServiceDep,
+    project_id: Annotated[int, Path(gt=0)],
+) -> ApiResult[SupervisorSessionVO]:
+    """创建可在页面切换后恢复的 Supervisor 聊天会话。"""
+    return success(await service.create_session(project_id, payload, current_user), "Supervisor 会话已创建")
+
+
+@router.get(
+    "/projects/{project_id}/sessions",
+    response_model=ApiResult[list[SupervisorSessionVO]],
+    dependencies=[Depends(require_permission(Permission.SUPERVISOR_VIEW))],
+)
+async def list_supervisor_sessions(
+    current_user: CurrentUser,
+    service: SupervisorServiceDep,
+    project_id: Annotated[int, Path(gt=0)],
+) -> ApiResult[list[SupervisorSessionVO]]:
+    """列出当前用户在项目内的 Supervisor 会话。"""
+    return success(await service.list_sessions(project_id, current_user))
 
 
 @router.post(
@@ -49,11 +78,12 @@ async def list_supervisor_runs(
     service: SupervisorServiceDep,
     project_id: Annotated[int, Path(gt=0)],
     status: Annotated[SupervisorRunStatus | None, Query()] = None,
+    session_id: Annotated[int | None, Query(alias="sessionId", gt=0)] = None,
     current: Annotated[int, Query(ge=1)] = 1,
     size: Annotated[int, Query(ge=1, le=100)] = 10,
 ) -> ApiResult[PageResult[SupervisorRunVO]]:
     """分页查看项目内运行；列表不返回每一步的大块参数和结果。"""
-    records, total = await service.list_runs(project_id, current_user, current, size, status)
+    records, total = await service.list_runs(project_id, current_user, current, size, status, session_id)
     return success(PageResult(current=current, size=size, total=total, records=records))
 
 

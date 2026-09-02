@@ -103,6 +103,14 @@ class ToolTaskCreateDTO(CamelModel):
     input_data: dict[str, Any] = Field(default_factory=dict)
 
 
+class AIFileRecordsGenerateDTO(CamelModel):
+    """根据文件模板生成合成测试数据，而不是要求用户逐字段填写 JSON。"""
+
+    count: int = Field(default=10, ge=1, le=100)
+    scenarios: str = Field(default="正常、边界和异常场景均衡覆盖", min_length=1, max_length=1000)
+    constraints: str = Field(default="", max_length=4000)
+
+
 class ToolTaskQueryDTO(CamelModel):
     """工具任务列表筛选。"""
 

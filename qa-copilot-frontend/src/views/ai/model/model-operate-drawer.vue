@@ -230,6 +230,7 @@ watch(visible, value => {
             <ElOption :label="$t('page.ai.model.taskTypeOptions.requirementAnalysis')" value="requirement_analysis" />
             <ElOption :label="$t('page.ai.model.taskTypeOptions.coverageAnalysis')" value="coverage_analysis" />
             <ElOption :label="$t('page.ai.model.taskTypeOptions.supervisorPlanning')" value="supervisor_planning" />
+            <ElOption :label="$t('page.ai.model.taskTypeOptions.dataQuery')" value="data_query" />
             <ElOption :label="$t('page.ai.model.taskTypeOptions.embedding')" value="embedding" />
             <ElOption :label="$t('page.ai.model.taskTypeOptions.rerank')" value="rerank" />
           </ElSelect>

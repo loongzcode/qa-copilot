@@ -65,6 +65,7 @@ class SupervisorRunVO(CamelModel):
     """Supervisor 运行列表使用的轻量信息。"""
 
     id: int
+    session_id: int | None
     project_id: int
     goal: str
     invocation_source: CapabilityInvocationSource
@@ -89,3 +90,14 @@ class SupervisorRunDetailVO(SupervisorRunVO):
     context_snapshot: dict[str, Any]
     result_summary: dict[str, Any]
     steps: list[SupervisorPlanStepVO]
+
+
+class SupervisorSessionVO(CamelModel):
+    """前端会话列表需要的轻量信息。"""
+
+    id: int
+    project_id: int
+    title: str
+    created_by: int | None
+    created_at: datetime
+    updated_at: datetime

@@ -767,6 +767,17 @@ export const generatedRoutes: GeneratedRoute[] = [
     },
     children: [
       {
+        name: 'project_data-query',
+        path: '/project/data-query',
+        component: 'view.project_data-query',
+        meta: {
+          title: 'project_data-query',
+          i18nKey: 'route.project_data-query',
+          icon: 'mdi:database-search-outline',
+          order: 5
+        }
+      },
+      {
         name: 'project_environments',
         path: '/project/environments',
         component: 'view.project_environments',

@@ -354,6 +354,26 @@ class AIModelTaskType(StrEnum):
     COVERAGE_ANALYSIS = "coverage_analysis"
     # 把用户开放目标规划成受控能力步骤；只负责规划，不直接执行工具。
     SUPERVISOR_PLANNING = "supervisor_planning"
+    # 把产品人员的自然语言问题转换为受控只读 SQL，并解释查询结果。
+    DATA_QUERY = "data_query"
+
+
+class DataSourceDatabaseType(StrEnum):
+    """智能数据查询当前支持的数据库方言。"""
+
+    MYSQL = "MYSQL"
+    POSTGRESQL = "POSTGRESQL"
+
+
+class DataQueryExecutionStatus(StrEnum):
+    """一次自然语言数据查询从创建到结束的状态。"""
+
+    GENERATING = "GENERATING"
+    VALIDATING = "VALIDATING"
+    EXECUTING = "EXECUTING"
+    SUCCEEDED = "SUCCEEDED"
+    REJECTED = "REJECTED"
+    FAILED = "FAILED"
 
 
 class RequirementStatus(StrEnum):
@@ -671,6 +691,24 @@ PROMPT_REQUIRED_VARIABLES: dict[str, frozenset[str]] = {
             "available_capabilities_json",
             "output_schema",
             "validation_feedback",
+        }
+    ),
+    "data_query_sql": frozenset(
+        {
+            "database_type",
+            "database_name",
+            "schema_context",
+            "question",
+            "validation_feedback",
+            "output_schema",
+        }
+    ),
+    "data_query_summary": frozenset(
+        {
+            "question",
+            "sql",
+            "result_json",
+            "output_schema",
         }
     ),
 }

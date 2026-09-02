@@ -84,6 +84,14 @@ declare namespace Api {
       updatedAt: string;
     };
     type FileTemplateParams = Omit<FileTemplate, 'id' | 'projectId' | 'createdAt' | 'updatedAt'>;
+    type AIFileRecordsGenerateParams = { count: number; scenarios: string; constraints: string };
+    type AIFileRecordsPreview = {
+      records: Array<Record<string, any>>;
+      validationErrors: Array<Record<string, any>>;
+      modelId: number;
+      inputTokens: number;
+      outputTokens: number;
+    };
 
     type Approval = {
       id: number;

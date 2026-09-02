@@ -241,12 +241,7 @@ onMounted(loadServerInfo);
       </div>
     </ElCard>
 
-    <ElDrawer
-      v-model="drawerVisible"
-      :size="isMobile ? '100%' : '620px'"
-      destroy-on-close
-      class="mcp-call-drawer"
-    >
+    <ElDrawer v-model="drawerVisible" :size="isMobile ? '100%' : '620px'" destroy-on-close class="mcp-call-drawer">
       <template #header>
         <div v-if="activeTool" class="drawer-title">
           <span class="tool-icon"><SvgIcon icon="mdi:play-box-outline" /></span>
@@ -266,12 +261,7 @@ onMounted(loadServerInfo);
         />
 
         <ElForm label-position="top" class="tool-form">
-          <ElFormItem
-            v-for="field in toolFields"
-            :key="field.key"
-            :label="field.label"
-            :required="field.required"
-          >
+          <ElFormItem v-for="field in toolFields" :key="field.key" :label="field.label" :required="field.required">
             <ElSelect
               v-if="field.schema.enum?.length"
               v-model="callArguments[field.key]"
@@ -279,7 +269,12 @@ onMounted(loadServerInfo);
               filterable
               :placeholder="field.schema.description || `请选择${field.label}`"
             >
-              <ElOption v-for="option in field.schema.enum" :key="String(option)" :label="String(option)" :value="option" />
+              <ElOption
+                v-for="option in field.schema.enum"
+                :key="String(option)"
+                :label="String(option)"
+                :value="option"
+              />
             </ElSelect>
             <ElInputNumber
               v-else-if="field.schema.type === 'integer' || field.schema.type === 'number'"
@@ -296,8 +291,9 @@ onMounted(loadServerInfo);
               :placeholder="field.schema.description || `请输入${field.label}`"
             />
             <div class="field-hint">
-              参数名：<code>{{ field.key }}</code>
-              <span v-if="field.schema.description"> · {{ field.schema.description }}</span>
+              参数名：
+              <code>{{ field.key }}</code>
+              <span v-if="field.schema.description">· {{ field.schema.description }}</span>
             </div>
           </ElFormItem>
         </ElForm>
@@ -462,7 +458,10 @@ h3 {
   padding: 18px;
   border: 1px solid var(--el-border-color-lighter);
   border-radius: 10px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
 }
 
 .tool-card:hover {

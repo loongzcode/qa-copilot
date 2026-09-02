@@ -5,6 +5,7 @@ import {
   fetchApproveToolTask,
   fetchCreateToolTask,
   fetchExecuteToolTask,
+  fetchGenerateAIFileRecords,
   fetchGetFileTemplates,
   fetchGetToolConnections,
   fetchGetToolTask,
@@ -30,6 +31,8 @@ const createVisible = ref(false);
 const detailVisible = ref(false);
 const selected = ref<Api.ToolManage.Task | null>(null);
 const uploadFile = ref<File | null>(null);
+const aiRecords = ref<Array<Record<string, any>>>([]);
+const generatingRecords = ref(false);
 type UiAction = 'NAVIGATE' | 'CLICK' | 'FILL' | 'ASSERT_VISIBLE' | 'ASSERT_TEXT' | 'ASSERT_URL';
 type UiStepForm = {
   name: string;
@@ -54,6 +57,10 @@ const form = reactive({
   targetConnectionId: null as number | null,
   templateId: null as number | null,
   recordsJson: '[\n  {"orderNo": "T001", "amount": 100.50}\n]',
+  fileDataSource: 'AI' as 'AI' | 'MANUAL',
+  aiCount: 10,
+  aiScenarios: '正常、边界和异常场景均衡覆盖',
+  aiConstraints: '',
   dataId: '',
   group: 'DEFAULT_GROUP',
   configType: 'yaml',
@@ -147,6 +154,10 @@ function openCreate() {
     targetConnectionId: null,
     templateId: null,
     recordsJson: '[\n  {"orderNo": "T001", "amount": 100.50}\n]',
+    fileDataSource: 'AI',
+    aiCount: 10,
+    aiScenarios: '正常、边界和异常场景均衡覆盖',
+    aiConstraints: '',
     dataId: '',
     group: 'DEFAULT_GROUP',
     configType: 'yaml',
@@ -170,7 +181,28 @@ function openCreate() {
     }
   ];
   uploadFile.value = null;
+  aiRecords.value = [];
   createVisible.value = true;
+}
+async function generateAIRecords(): Promise<void> {
+  if (!projectId.value || !form.templateId) {
+    window.$message?.warning('请先选择文件模板');
+    return;
+  }
+  generatingRecords.value = true;
+  try {
+    const { data, error } = await fetchGenerateAIFileRecords(projectId.value, form.templateId, {
+      count: form.aiCount,
+      scenarios: form.aiScenarios.trim(),
+      constraints: form.aiConstraints.trim()
+    });
+    if (error) return;
+    aiRecords.value = data.records;
+    form.recordsJson = JSON.stringify(data.records, null, 2);
+    window.$message?.success(`AI 已生成 ${data.records.length} 条记录并通过模板校验`);
+  } finally {
+    generatingRecords.value = false;
+  }
 }
 function buildInput(): Record<string, any> {
   if (form.taskType === 'FILE_GENERATE') return { template_id: form.templateId, records: JSON.parse(form.recordsJson) };
@@ -231,13 +263,21 @@ function addUiStep() {
 function removeUiStep(index: number) {
   if (uiSteps.value.length > 1) uiSteps.value.splice(index, 1);
 }
-async function createTask() {
-  if (!projectId.value || !form.title.trim()) return window.$message?.warning('请填写任务标题');
+async function createTask(): Promise<void> {
+  if (!projectId.value || !form.title.trim()) {
+    window.$message?.warning('请填写任务标题');
+    return;
+  }
+  if (form.taskType === 'FILE_GENERATE' && form.fileDataSource === 'AI' && !aiRecords.value.length) {
+    window.$message?.warning('请先生成并校验 AI 测试数据');
+    return;
+  }
   let inputData: Record<string, any>;
   try {
     inputData = buildInput();
   } catch {
-    return window.$message?.error('生成记录不是有效 JSON');
+    window.$message?.error('生成记录不是有效 JSON');
+    return;
   }
   actingId.value = 0;
   const result = await fetchCreateToolTask(projectId.value, {
@@ -265,17 +305,22 @@ async function detail(row: Api.ToolManage.Task) {
 async function act(row: Api.ToolManage.Task, action: 'preview' | 'execute' | 'rollback') {
   if (!projectId.value) return;
   actingId.value = row.id;
-  const result =
-    action === 'preview'
-      ? await fetchPreviewToolTask(projectId.value, row.id)
-      : action === 'execute'
-        ? await fetchExecuteToolTask(projectId.value, row.id)
-        : await fetchRollbackToolTask(projectId.value, row.id);
+  let result;
+  if (action === 'preview') {
+    result = await fetchPreviewToolTask(projectId.value, row.id);
+  } else if (action === 'execute') {
+    result = await fetchExecuteToolTask(projectId.value, row.id);
+  } else {
+    result = await fetchRollbackToolTask(projectId.value, row.id);
+  }
   actingId.value = null;
   if (result.error) return;
-  window.$message?.success(
-    action === 'preview' ? '可信预览已生成' : action === 'execute' ? '任务执行完成' : '任务已回滚'
-  );
+  const successMessages = {
+    preview: '可信预览已生成',
+    execute: '任务执行完成',
+    rollback: '任务已回滚'
+  } as const;
+  window.$message?.success(successMessages[action]);
   await loadData();
   if (detailVisible.value) await detail(result.data);
 }
@@ -453,9 +498,56 @@ onMounted(() => Promise.all([loadOptions(), loadData()]));
               />
             </ElSelect>
           </ElFormItem>
-          <ElFormItem v-if="form.taskType === 'FILE_GENERATE'" label="生成数据（JSON 数组）">
-            <ElInput v-model="form.recordsJson" type="textarea" :rows="10" class="tool-code" />
-          </ElFormItem>
+          <template v-if="form.taskType === 'FILE_GENERATE'">
+            <ElFormItem label="数据来源">
+              <ElRadioGroup v-model="form.fileDataSource">
+                <ElRadioButton value="AI">AI 生成测试数据</ElRadioButton>
+                <ElRadioButton value="MANUAL">高级：手工 JSON</ElRadioButton>
+              </ElRadioGroup>
+            </ElFormItem>
+            <template v-if="form.fileDataSource === 'AI'">
+              <div class="task-form-grid">
+                <ElFormItem label="生成数量" required>
+                  <ElInputNumber v-model="form.aiCount" :min="1" :max="100" class="w-full" />
+                </ElFormItem>
+                <ElFormItem label="场景分布" required>
+                  <ElInput v-model="form.aiScenarios" placeholder="例如：正常 60%、边界 20%、异常 20%" />
+                </ElFormItem>
+              </div>
+              <ElFormItem label="业务约束（可选）">
+                <ElInput
+                  v-model="form.aiConstraints"
+                  type="textarea"
+                  :rows="3"
+                  placeholder="例如：借款金额 1 万至 50 万；日期位于 2026 年；不得使用真实个人信息"
+                />
+              </ElFormItem>
+              <ElButton type="primary" plain :loading="generatingRecords" @click="generateAIRecords">
+                <SvgIcon icon="mdi:auto-fix" />
+                生成并校验测试数据
+              </ElButton>
+              <ElAlert
+                v-if="!aiRecords.length"
+                class="mt-3"
+                type="info"
+                :closable="false"
+                title="AI 只生成候选数据；日期、必填、类型和精度仍由固定模板校验器把关。"
+              />
+              <ElTable v-else :data="aiRecords.slice(0, 10)" border class="mt-3" max-height="320">
+                <ElTableColumn
+                  v-for="field in templates.find(item => item.id === form.templateId)?.fields || []"
+                  :key="field.sourceField"
+                  :prop="field.sourceField"
+                  :label="field.name"
+                  min-width="140"
+                  show-overflow-tooltip
+                />
+              </ElTable>
+            </template>
+            <ElFormItem v-else label="生成数据（JSON 数组）">
+              <ElInput v-model="form.recordsJson" type="textarea" :rows="10" class="tool-code" />
+            </ElFormItem>
+          </template>
           <ElFormItem v-else label="待校验文件" required>
             <input type="file" @change="uploadFile = ($event.target as HTMLInputElement).files?.[0] || null" />
           </ElFormItem>

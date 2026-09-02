@@ -16,6 +16,7 @@ from app.core.permissions import Permission
 from app.exceptions import BadRequestException
 from app.schemas.api_result import ApiResult, PageResult, success
 from app.schemas.dto.tool_center import (
+    AIFileRecordsGenerateDTO,
     ExternalConnectionCreateDTO,
     ExternalConnectionUpdateDTO,
     FileTemplateCreateDTO,
@@ -24,7 +25,13 @@ from app.schemas.dto.tool_center import (
     ToolTaskCreateDTO,
     ToolTaskQueryDTO,
 )
-from app.schemas.vo.tool_center import ExternalConnectionVO, FileTemplateVO, ToolDefinitionVO, ToolTaskVO
+from app.schemas.vo.tool_center import (
+    AIFileRecordsPreviewVO,
+    ExternalConnectionVO,
+    FileTemplateVO,
+    ToolDefinitionVO,
+    ToolTaskVO,
+)
 
 router = APIRouter(tags=["测试工具中心"])
 
@@ -134,6 +141,25 @@ async def update_file_template(
     template_id: int = Path(gt=0),
 ) -> ApiResult[FileTemplateVO]:
     return success(await service.update_template(project_id, template_id, payload, current_user), "文件模板更新成功")
+
+
+@router.post(
+    "/projects/{project_id}/file-templates/{template_id}/ai-records",
+    response_model=ApiResult[AIFileRecordsPreviewVO],
+    dependencies=[Depends(require_permission(Permission.TOOL_MANAGE))],
+)
+async def generate_ai_file_records(
+    payload: AIFileRecordsGenerateDTO,
+    current_user: CurrentUser,
+    service: ToolExecutionServiceDep,
+    project_id: int = Path(gt=0),
+    template_id: int = Path(gt=0),
+) -> ApiResult[AIFileRecordsPreviewVO]:
+    """按照模板规则生成合成测试数据；返回前必须通过固定校验器。"""
+    return success(
+        await service.generate_ai_file_records(project_id, template_id, payload, current_user),
+        "AI 测试数据已生成并通过模板校验",
+    )
 
 
 @router.post(

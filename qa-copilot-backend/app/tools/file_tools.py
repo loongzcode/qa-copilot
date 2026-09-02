@@ -16,6 +16,28 @@ from app.core.constants import FileTemplateFormat
 from app.exceptions import BadRequestException
 
 
+def _normalize_datetime_pattern(pattern: str) -> str:
+    """把页面常用日期格式转换为 Python ``strptime`` 格式。
+
+    文件模板面向业务用户，使用 ``YYYY-MM-DD`` 等直观写法；Python 标准库则要求
+    ``%Y-%m-%d``。在校验入口统一转换，可以让 AI 数据、手工 JSON 和上传文件共用
+    同一套模板，同时继续兼容用户直接填写的 Python 格式。
+    """
+    if "%" in pattern:
+        return pattern
+    for source, target in (
+        ("YYYY", "%Y"),
+        ("YY", "%y"),
+        ("MM", "%m"),
+        ("DD", "%d"),
+        ("HH", "%H"),
+        ("mm", "%M"),
+        ("ss", "%S"),
+    ):
+        pattern = pattern.replace(source, target)
+    return pattern
+
+
 def _convert_value(value: Any, field: dict[str, Any]) -> tuple[Any, str | None]:
     """按字段类型、精度、日期格式和码值映射转换单值。"""
     name = str(field["name"])
@@ -38,6 +60,7 @@ def _convert_value(value: Any, field: dict[str, Any]) -> tuple[Any, str | None]:
                 converted = converted.quantize(Decimal(1).scaleb(-int(precision)))
         elif data_type in {"DATE", "DATETIME"}:
             pattern = str(field.get("format") or ("%Y-%m-%d" if data_type == "DATE" else "%Y-%m-%d %H:%M:%S"))
+            pattern = _normalize_datetime_pattern(pattern)
             if isinstance(value, datetime | date):
                 converted = value.strftime(pattern)
             else:

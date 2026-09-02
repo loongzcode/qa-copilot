@@ -31,7 +31,7 @@ from app.exceptions import (
     NotFoundException,
 )
 from app.exceptions.errors import describe_exception
-from app.models import AIModel, PromptTemplate, SupervisorPlanStep, SupervisorRun, User
+from app.models import AIModel, PromptTemplate, SupervisorPlanStep, SupervisorRun, SupervisorSession, User
 from app.repositories.ai_model_repository import AIModelRepository
 from app.repositories.outbox_event_repository import OutboxEventRepository
 from app.repositories.prompt_template_repository import PromptTemplateRepository
@@ -42,6 +42,7 @@ from app.schemas.dto.ai_usage_logs import AIUsageContextDTO
 from app.schemas.dto.supervisor import (
     SupervisorApprovalDTO,
     SupervisorCreateRunDTO,
+    SupervisorCreateSessionDTO,
     SupervisorPlanDTO,
 )
 from app.schemas.vo.supervisor import (
@@ -49,6 +50,7 @@ from app.schemas.vo.supervisor import (
     SupervisorPlanValidationVO,
     SupervisorRunDetailVO,
     SupervisorRunVO,
+    SupervisorSessionVO,
 )
 
 _SENSITIVE_CONTEXT_KEYS = {
@@ -99,6 +101,29 @@ class SupervisorService:
     def _run_read(run: SupervisorRun) -> SupervisorRunVO:
         """把运行实体转换为列表 VO，不加载和返回步骤快照。"""
         return SupervisorRunVO.model_validate(run)
+
+    async def create_session(
+        self, project_id: int, payload: SupervisorCreateSessionDTO, current_user: User
+    ) -> SupervisorSessionVO:
+        """创建一个只属于当前用户的 Supervisor 聊天会话。"""
+        if await self.project_repository.get_accessible_project(project_id, current_user) is None:
+            raise NotFoundException("项目不存在或无权访问")
+        session = SupervisorSession(
+            project_id=project_id,
+            title=payload.title.strip(),
+            created_by=current_user.id,
+        )
+        self.repository.add_session(session)
+        await self.repository.commit()
+        await self.repository.refresh(session)
+        return SupervisorSessionVO.model_validate(session)
+
+    async def list_sessions(self, project_id: int, current_user: User) -> list[SupervisorSessionVO]:
+        """返回当前用户可恢复的 Supervisor 会话列表。"""
+        if await self.project_repository.get_accessible_project(project_id, current_user) is None:
+            raise NotFoundException("项目不存在或无权访问")
+        sessions = await self.repository.list_sessions(project_id, current_user.id)
+        return [SupervisorSessionVO.model_validate(item) for item in sessions]
 
     @staticmethod
     def _run_detail_read(run: SupervisorRun) -> SupervisorRunDetailVO:
@@ -241,6 +266,19 @@ class SupervisorService:
         """
         if await self.project_repository.get_accessible_project(project_id, current_user) is None:
             raise NotFoundException("项目不存在或无权访问")
+        session: SupervisorSession | None = None
+        if payload.session_id is not None:
+            session = await self.repository.get_session(project_id, payload.session_id, current_user.id)
+            if session is None:
+                raise NotFoundException("Supervisor 会话不存在或无权访问")
+        else:
+            session = SupervisorSession(
+                project_id=project_id,
+                title=payload.goal.strip()[:60] or "新会话",
+                created_by=current_user.id,
+            )
+            self.repository.add_session(session)
+            await self.repository.flush()
         self._ensure_context_safe(payload.business_context)
         # project_id 来自经过 FastAPI 校验和数据权限检查的路径参数，属于服务端可信上下文。
         # 放在最后可以覆盖用户字典中伪造的同名键，模型便能为能力生成正确的项目参数。
@@ -257,6 +295,7 @@ class SupervisorService:
 
         run = SupervisorRun(
             project_id=project_id,
+            session_id=session.id,
             goal=payload.goal.strip(),
             invocation_source=CapabilityInvocationSource.SUPERVISOR.value,
             status=SupervisorRunStatus.PLANNING.value,
@@ -356,6 +395,7 @@ class SupervisorService:
         current: int,
         size: int,
         status: SupervisorRunStatus | None,
+        session_id: int | None = None,
     ) -> tuple[list[SupervisorRunVO], int]:
         """分页查询当前用户可访问项目中的 Supervisor 运行。
 
@@ -365,7 +405,12 @@ class SupervisorService:
         """
         if await self.project_repository.get_accessible_project(project_id, current_user) is None:
             raise NotFoundException("项目不存在或无权访问")
-        records, total = await self.repository.list_runs(project_id, current, size, status)
+        if (
+            session_id is not None
+            and await self.repository.get_session(project_id, session_id, current_user.id) is None
+        ):
+            raise NotFoundException("Supervisor 会话不存在或无权访问")
+        records, total = await self.repository.list_runs(project_id, current, size, status, session_id)
         return [self._run_read(run) for run in records], total
 
     async def get_run_detail(

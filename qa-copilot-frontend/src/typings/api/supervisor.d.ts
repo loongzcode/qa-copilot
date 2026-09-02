@@ -34,6 +34,16 @@ declare namespace Api {
     type CreateRunParams = {
       goal: string;
       businessContext: BusinessContext;
+      sessionId?: number;
+    };
+
+    type Session = {
+      id: number;
+      projectId: number;
+      title: string;
+      createdBy: number | null;
+      createdAt: string;
+      updatedAt: string;
     };
 
     type ApprovalParams = {
@@ -45,10 +55,12 @@ declare namespace Api {
       current: number;
       size: number;
       status?: RunStatus;
+      sessionId?: number;
     };
 
     type PlanStep = {
       id: number;
+      sessionId: number | null;
       stepNo: number;
       stepKey: string;
       capabilityCode: string;

@@ -30,6 +30,37 @@ if TYPE_CHECKING:
     from app.models.user import User
 
 
+class SupervisorSession(TimestampMixin, Base):
+    """Supervisor 的持久化聊天会话。
+
+    功能：把同一轮连续交流产生的多次 SupervisorRun 归为一组。
+    作用：前端用它恢复会话列表；每个 Run 仍负责可靠执行和审计。
+    为什么用它：聊天负责交互、Run 负责执行，避免把审批和步骤状态塞进普通消息文本。
+    """
+
+    __tablename__ = "supervisor_sessions"
+    __table_args__ = (
+        Index("ix_supervisor_sessions_project_user_updated", "project_id", "created_by", "updated_at"),
+        {"comment": "Supervisor 聊天会话；一次会话可包含多次受控运行"},
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, comment="会话主键")
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("test_projects.id", ondelete="CASCADE"), nullable=False, comment="所属项目 ID"
+    )
+    title: Mapped[str] = mapped_column(String(120), nullable=False, comment="会话标题")
+    created_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, comment="会话创建人 ID"
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, comment="软删除时间")
+
+    project: Mapped[TestProjects] = relationship("TestProjects", lazy="selectin")
+    creator: Mapped[User | None] = relationship("User", foreign_keys=[created_by], lazy="selectin")
+    runs: Mapped[list[SupervisorRun]] = relationship(
+        "SupervisorRun", back_populates="session", order_by="SupervisorRun.created_at", lazy="raise"
+    )
+
+
 class SupervisorRun(TimestampMixin, Base):
     """一次用户开放目标的完整 Supervisor 运行记录。
 
@@ -59,6 +90,9 @@ class SupervisorRun(TimestampMixin, Base):
         ForeignKey("test_projects.id", ondelete="CASCADE"),
         nullable=False,
         comment="所属项目 ID，也是数据权限隔离边界",
+    )
+    session_id: Mapped[int | None] = mapped_column(
+        ForeignKey("supervisor_sessions.id", ondelete="CASCADE"), nullable=True, comment="所属聊天会话 ID"
     )
     goal: Mapped[str] = mapped_column(Text, nullable=False, comment="用户提交的原始目标")
     invocation_source: Mapped[str] = mapped_column(
@@ -113,6 +147,9 @@ class SupervisorRun(TimestampMixin, Base):
     )
 
     project: Mapped[TestProjects] = relationship("TestProjects", lazy="selectin")
+    session: Mapped[SupervisorSession | None] = relationship(
+        "SupervisorSession", back_populates="runs", lazy="selectin"
+    )
     model: Mapped[AIModel | None] = relationship("AIModel", lazy="selectin")
     requester: Mapped[User | None] = relationship("User", foreign_keys=[requested_by], lazy="selectin")
     steps: Mapped[list[SupervisorPlanStep]] = relationship(

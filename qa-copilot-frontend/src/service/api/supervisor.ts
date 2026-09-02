@@ -1,5 +1,20 @@
 import { request } from '../request';
 
+export function fetchCreateSupervisorSession(projectId: number, title = '新会话') {
+  return request<Api.Supervisor.Session>({
+    url: `/supervisor/projects/${projectId}/sessions`,
+    method: 'post',
+    data: { title }
+  });
+}
+
+export function fetchGetSupervisorSessions(projectId: number) {
+  return request<Api.Supervisor.Session[]>({
+    url: `/supervisor/projects/${projectId}/sessions`,
+    method: 'get'
+  });
+}
+
 /** 为项目内的开放目标生成受权限约束的执行计划；当前接口只规划，不执行步骤。 */
 export function fetchCreateSupervisorRun(projectId: number, data: Api.Supervisor.CreateRunParams) {
   return request<Api.Supervisor.RunDetail>({
@@ -47,12 +62,14 @@ export function fetchExecuteSupervisorRun(projectId: number, runId: number) {
 /** 审批风险步骤；最后一个等待步骤获批后，后端会自动可靠提交执行。 */
 export function fetchDecideSupervisorStepApproval(
   projectId: number,
-  runId: number,
-  stepId: number,
+  target: {
+    runId: number;
+    stepId: number;
+  },
   data: Api.Supervisor.ApprovalParams
 ) {
   return request<Api.Supervisor.RunDetail>({
-    url: `/supervisor/projects/${projectId}/runs/${runId}/steps/${stepId}/approval`,
+    url: `/supervisor/projects/${projectId}/runs/${target.runId}/steps/${target.stepId}/approval`,
     method: 'post',
     data
   });

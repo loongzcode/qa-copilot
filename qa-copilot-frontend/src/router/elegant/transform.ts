@@ -248,6 +248,7 @@ const routeMap: RouteMap = {
   "plugin_typeit": "/plugin/typeit",
   "plugin_video": "/plugin/video",
   "project": "/project",
+  "project_data-query": "/project/data-query",
   "project_environments": "/project/environments",
   "project_info": "/project/info",
   "project_members": "/project/members",

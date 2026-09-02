@@ -91,6 +91,13 @@ class Permission:
     # 使用测试环境配置发起连接测试。
     PROJECT_ENVIRONMENT_TEST = "project:environment:test"
 
+    # 查看环境数据源、元数据和本人可访问项目的数据查询历史。
+    DATA_QUERY_VIEW = "data:query:view"
+    # 创建、编辑、测试和删除测试环境的数据源连接。
+    DATA_QUERY_SOURCE_MANAGE = "data:query:source:manage"
+    # 使用自然语言生成并执行受控只读 SQL。
+    DATA_QUERY_EXECUTE = "data:query:execute"
+
     # 查看符合 PROJECT、MANAGERS、PRIVATE 数据权限的知识库。
     KNOWLEDGE_BASE_VIEW = "knowledge:base:view"
     # 创建、编辑、启停和删除知识库。

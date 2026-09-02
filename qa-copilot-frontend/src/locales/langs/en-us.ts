@@ -199,6 +199,7 @@ const local: App.I18n.Schema = {
     automation_definitions: 'Automation Definitions',
     automation_schedules: 'Scheduled Regression',
     project: 'Project Management',
+    'project_data-query': 'Data Query',
     project_info: 'Project Information',
     project_members: 'Project Members',
     project_modules: 'Feature Modules',
@@ -478,6 +479,7 @@ const local: App.I18n.Schema = {
           queryRewrite: 'Query Rewrite',
           requirementAnalysis: 'Requirement Analysis',
           supervisorPlanning: 'Supervisor Planning',
+          dataQuery: 'Intelligent Data Query',
           coverageAnalysis: 'Coverage Analysis',
           embedding: 'Text Embedding',
           rerank: 'Retrieval Reranking'

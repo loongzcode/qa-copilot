@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.agents.supervisor_state_machine import can_transition_supervisor_run, can_transition_supervisor_step
 from app.core.constants import SupervisorExecutionStepStatus, SupervisorRunStatus
-from app.models import SupervisorPlanStep, SupervisorRun
+from app.models import SupervisorPlanStep, SupervisorRun, SupervisorSession
 from app.repositories.base_repository import BaseRepository
 
 
@@ -19,6 +19,39 @@ class SupervisorRepository(BaseRepository):
     def add_run(self, run: SupervisorRun) -> None:
         """把运行及其步骤加入当前事务；是否提交由 Service 统一决定。"""
         self.add(run)
+
+    def add_session(self, session: SupervisorSession) -> None:
+        """把聊天会话加入当前事务，提交时机由 Service 控制。"""
+        self.add(session)
+
+    async def get_session(
+        self, project_id: int, session_id: int, created_by: int | None = None
+    ) -> SupervisorSession | None:
+        """按项目和创建人读取未删除会话，避免用户看到别人的私人聊天。"""
+        conditions = [
+            SupervisorSession.id == session_id,
+            SupervisorSession.project_id == project_id,
+            SupervisorSession.deleted_at.is_(None),
+        ]
+        if created_by is not None:
+            conditions.append(SupervisorSession.created_by == created_by)
+        return await self.session.scalar(select(SupervisorSession).where(*conditions))
+
+    async def list_sessions(self, project_id: int, created_by: int) -> list[SupervisorSession]:
+        """按最近使用时间返回当前用户在项目中的聊天会话。"""
+        return list(
+            (
+                await self.session.scalars(
+                    select(SupervisorSession)
+                    .where(
+                        SupervisorSession.project_id == project_id,
+                        SupervisorSession.created_by == created_by,
+                        SupervisorSession.deleted_at.is_(None),
+                    )
+                    .order_by(SupervisorSession.updated_at.desc(), SupervisorSession.id.desc())
+                )
+            ).all()
+        )
 
     async def get_run(self, project_id: int, run_id: int, *, lock: bool = False) -> SupervisorRun | None:
         """读取一个项目内的 Supervisor 运行及全部步骤。
@@ -47,11 +80,14 @@ class SupervisorRepository(BaseRepository):
         current: int,
         size: int,
         status: SupervisorRunStatus | None = None,
+        session_id: int | None = None,
     ) -> tuple[list[SupervisorRun], int]:
         """分页查询项目内 Supervisor 运行，列表阶段不加载步骤详情。"""
         conditions = [SupervisorRun.project_id == project_id]
         if status is not None:
             conditions.append(SupervisorRun.status == status.value)
+        if session_id is not None:
+            conditions.append(SupervisorRun.session_id == session_id)
         total = int(await self.session.scalar(select(func.count(SupervisorRun.id)).where(*conditions)) or 0)
         statement = (
             select(SupervisorRun)

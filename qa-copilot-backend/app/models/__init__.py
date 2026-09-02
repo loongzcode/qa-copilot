@@ -9,6 +9,7 @@ from app.models.automation_definitions import AutomationDefinition, AutomationDe
 from app.models.automation_execution_step_results import AutomationExecutionStepResult
 from app.models.automation_execution_tasks import AutomationExecutionTask
 from app.models.automation_schedules import AutomationSchedule
+from app.models.data_query import DataQueryExecution, DataSourceMetadataSnapshot, EnvironmentDataSource
 from app.models.knowledge_bases import KnowledgeBase
 from app.models.knowledge_chat import (
     KnowledgeChatMemorySummary,
@@ -25,7 +26,7 @@ from app.models.prompt_template import PromptTemplate
 from app.models.requirement_extraction_tasks import RequirementExtractionTask
 from app.models.requirements import Requirement, RequirementItem
 from app.models.role import Role
-from app.models.supervisor import SupervisorPlanStep, SupervisorRun
+from app.models.supervisor import SupervisorPlanStep, SupervisorRun, SupervisorSession
 from app.models.test_cases import (
     CaseGenerationTask,
     CaseReviewRecord,
@@ -57,6 +58,9 @@ __all__ = [
     "AutomationExecutionStepResult",
     "AutomationExecutionTask",
     "AutomationSchedule",
+    "EnvironmentDataSource",
+    "DataSourceMetadataSnapshot",
+    "DataQueryExecution",
     "KnowledgeBase",
     "KnowledgeDocument",
     "KnowledgeDocumentChunk",
@@ -73,6 +77,7 @@ __all__ = [
     "RequirementExtractionTask",
     "Role",
     "SupervisorRun",
+    "SupervisorSession",
     "SupervisorPlanStep",
     "TestEnvironment",
     "TestProjectMember",

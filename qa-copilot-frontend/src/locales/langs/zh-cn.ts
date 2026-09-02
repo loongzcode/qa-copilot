@@ -199,6 +199,7 @@ const local: App.I18n.Schema = {
     automation_definitions: '自动化定义',
     automation_schedules: '定时回归',
     project: '项目管理',
+    'project_data-query': '数据查询',
     project_info: '项目信息',
     project_members: '项目成员',
     project_modules: '功能模块',
@@ -478,6 +479,7 @@ const local: App.I18n.Schema = {
           queryRewrite: '问题改写',
           requirementAnalysis: '需求分析',
           supervisorPlanning: 'Supervisor 目标规划',
+          dataQuery: '智能数据查询',
           coverageAnalysis: '覆盖分析',
           embedding: '文本向量化',
           rerank: '检索结果重排序'

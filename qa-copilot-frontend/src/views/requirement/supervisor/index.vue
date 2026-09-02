@@ -5,11 +5,16 @@ import dayjs from 'dayjs';
 import {
   fetchCancelSupervisorRun,
   fetchCreateSupervisorRun,
+  fetchCreateSupervisorSession,
   fetchDecideSupervisorStepApproval,
   fetchExecuteSupervisorRun,
+  fetchGetKnowledgeBaseList,
   fetchGetProjectList,
+  fetchGetProjectModules,
+  fetchGetRequirementList,
   fetchGetSupervisorRunDetail,
-  fetchGetSupervisorRuns
+  fetchGetSupervisorRuns,
+  fetchGetSupervisorSessions
 } from '@/service/api';
 import { useAuthStore } from '@/store/modules/auth';
 
@@ -28,11 +33,21 @@ const detailDrawerVisible = ref(false);
 const activeProjectId = ref<number | null>(null);
 const projects = ref<Api.ProjectManage.Project[]>([]);
 const records = ref<Api.Supervisor.Run[]>([]);
+const sessions = ref<Api.Supervisor.Session[]>([]);
+const activeSessionId = ref<number | null>(null);
+const requirements = ref<Api.RequirementManage.Requirement[]>([]);
+const knowledgeBases = ref<Api.KnowledgeManage.KnowledgeBase[]>([]);
+const modules = ref<Api.ProjectManage.ProjectModule[]>([]);
 const activeRun = ref<Api.Supervisor.RunDetail | null>(null);
 const total = ref(0);
 let pollingTimer: ReturnType<typeof setInterval> | null = null;
 
-const searchParams = reactive<Api.Supervisor.RunSearchParams>({ current: 1, size: 10, status: undefined });
+const searchParams = reactive<Api.Supervisor.RunSearchParams>({
+  current: 1,
+  size: 50,
+  status: undefined,
+  sessionId: undefined
+});
 const createForm = reactive({
   goal: '',
   requirementId: undefined as number | undefined,
@@ -54,6 +69,7 @@ const cancellableStatuses: Api.Supervisor.RunStatus[] = ['PLANNING', 'READY', 'W
 const hasRunningRun = computed(
   () => records.value.some(item => item.status === 'RUNNING') || activeRun.value?.status === 'RUNNING'
 );
+const chatRuns = computed(() => [...records.value].reverse());
 
 const runStatusOptions: Array<{ label: string; value: Api.Supervisor.RunStatus }> = [
   { label: '规划中', value: 'PLANNING' },
@@ -146,6 +162,46 @@ async function getData(silent = false) {
   }
 }
 
+async function getContextOptions() {
+  if (!activeProjectId.value) return;
+  const [requirementResult, knowledgeResult, moduleResult] = await Promise.all([
+    fetchGetRequirementList(activeProjectId.value, { current: 1, size: 200, keyword: '' }),
+    fetchGetKnowledgeBaseList(activeProjectId.value, { current: 1, size: 200, keyword: '' }),
+    fetchGetProjectModules(activeProjectId.value, { keyword: '' })
+  ]);
+  if (!requirementResult.error) requirements.value = requirementResult.data.records;
+  if (!knowledgeResult.error) knowledgeBases.value = knowledgeResult.data.records;
+  if (!moduleResult.error) modules.value = moduleResult.data;
+}
+
+async function getSessions() {
+  if (!activeProjectId.value) return;
+  const { data, error } = await fetchGetSupervisorSessions(activeProjectId.value);
+  if (error) return;
+  sessions.value = data;
+  if (!activeSessionId.value || !data.some(item => item.id === activeSessionId.value)) {
+    activeSessionId.value = data[0]?.id ?? null;
+  }
+  searchParams.sessionId = activeSessionId.value ?? undefined;
+}
+
+async function createSession() {
+  if (!activeProjectId.value) return;
+  const { data, error } = await fetchCreateSupervisorSession(activeProjectId.value);
+  if (error) return;
+  await getSessions();
+  activeSessionId.value = data.id;
+  searchParams.sessionId = data.id;
+  await getData();
+}
+
+async function selectSession(sessionId: number) {
+  activeSessionId.value = sessionId;
+  searchParams.sessionId = sessionId;
+  searchParams.current = 1;
+  await getData();
+}
+
 /** 运行期间定时读取数据库状态；终态出现后下一轮会自然停止请求。 */
 function startPolling() {
   if (pollingTimer) clearInterval(pollingTimer);
@@ -162,15 +218,8 @@ function startPolling() {
 async function handleProjectChange() {
   searchParams.current = 1;
   activeRun.value = null;
+  await Promise.all([getContextOptions(), getSessions()]);
   await getData();
-}
-
-function openCreateDialog() {
-  createForm.goal = '';
-  createForm.requirementId = undefined;
-  createForm.knowledgeBaseId = undefined;
-  createForm.moduleId = undefined;
-  createDialogVisible.value = true;
 }
 
 async function submitCreate() {
@@ -184,15 +233,29 @@ async function submitCreate() {
   if (createForm.moduleId) businessContext.moduleId = createForm.moduleId;
 
   creating.value = true;
+  if (!activeSessionId.value) {
+    const sessionResult = await fetchCreateSupervisorSession(
+      activeProjectId.value,
+      createForm.goal.trim().slice(0, 60)
+    );
+    if (sessionResult.error) {
+      creating.value = false;
+      return;
+    }
+    activeSessionId.value = sessionResult.data.id;
+    searchParams.sessionId = sessionResult.data.id;
+  }
   const { data, error } = await fetchCreateSupervisorRun(activeProjectId.value, {
     goal: createForm.goal.trim(),
-    businessContext
+    businessContext,
+    sessionId: activeSessionId.value
   });
   creating.value = false;
   if (error) return;
   createDialogVisible.value = false;
+  createForm.goal = '';
   window.$message?.success('受控计划已生成；当前版本不会自动执行步骤');
-  await getData();
+  await Promise.all([getSessions(), getData()]);
   activeRun.value = data;
   detailDrawerVisible.value = true;
 }
@@ -275,8 +338,7 @@ async function decideStep(step: Api.Supervisor.PlanStep, decision: 'APPROVED' | 
   approvingStepId.value = step.id;
   const { data, error } = await fetchDecideSupervisorStepApproval(
     activeProjectId.value,
-    activeRun.value.id,
-    step.id,
+    { runId: activeRun.value.id, stepId: step.id },
     {
       decision,
       comment: approving ? '页面确认批准' : '页面确认驳回'
@@ -291,6 +353,7 @@ async function decideStep(step: Api.Supervisor.PlanStep, decision: 'APPROVED' | 
 
 onMounted(async () => {
   await getProjects();
+  await Promise.all([getContextOptions(), getSessions()]);
   await getData();
   startPolling();
 });
@@ -310,9 +373,9 @@ onBeforeUnmount(() => {
             把开放目标拆成受控步骤，并在执行前完成能力白名单、用户权限、风险和人工审批校验。
           </div>
         </div>
-        <ElButton v-if="canRun" type="primary" @click="openCreateDialog">
+        <ElButton v-if="canRun" type="primary" @click="createSession">
           <template #icon><SvgIcon icon="mdi:robot-outline" /></template>
-          新建受控计划
+          新建会话
         </ElButton>
       </div>
     </ElCard>
@@ -333,48 +396,86 @@ onBeforeUnmount(() => {
           class="status-select"
           placeholder="全部运行状态"
           clearable
-          @change="searchParams.current = 1; getData()"
+          @change="
+            searchParams.current = 1;
+            getData();
+          "
         >
           <ElOption v-for="item in runStatusOptions" :key="item.value" :label="item.label" :value="item.value" />
         </ElSelect>
+        <ElSelect
+          v-model="activeSessionId"
+          class="status-select"
+          placeholder="选择会话"
+          filterable
+          @change="selectSession"
+        >
+          <ElOption v-for="item in sessions" :key="item.id" :label="item.title" :value="item.id" />
+        </ElSelect>
+        <ElButton type="primary" plain @click="createSession">新建会话</ElButton>
         <ElButton :loading="loading" @click="getData()">
           <template #icon><SvgIcon icon="mdi:refresh" /></template>
           刷新
         </ElButton>
       </div>
 
-      <ElTable v-loading="loading" :data="records" row-key="id" class="run-table">
-        <ElTableColumn label="目标" min-width="320">
-          <template #default="{ row }">
-            <div class="goal-cell">
-              <span class="run-id">#{{ row.id }}</span>
-              <span class="goal-text">{{ row.goal }}</span>
+      <div v-loading="loading" class="supervisor-chat-thread">
+        <ElEmpty v-if="!chatRuns.length" description="发送一个质量目标，Supervisor 会在这里回复受控计划" />
+        <template v-for="run in chatRuns" :key="run.id">
+          <div class="chat-message chat-message-user">
+            <div class="chat-bubble">{{ run.goal }}</div>
+          </div>
+          <div class="chat-message chat-message-assistant">
+            <div class="chat-avatar"><SvgIcon icon="mdi:robot-outline" /></div>
+            <div class="chat-bubble assistant-bubble">
+              <div class="assistant-heading">
+                <strong>受控计划 #{{ run.id }}</strong>
+                <ElTag :type="runStatusType(run.status)" size="small">{{ runStatusLabel(run.status) }}</ElTag>
+              </div>
+              <p>
+                {{
+                  run.status === 'PLAN_REJECTED' || run.status === 'FAILED'
+                    ? run.errorMessage || '计划未通过安全校验'
+                    : '计划已经生成并保存。执行、审批和失败恢复仍由后台 Run 状态机负责。'
+                }}
+              </p>
+              <ElButton link type="primary" @click="openDetail(run)">查看计划与审批</ElButton>
             </div>
-          </template>
-        </ElTableColumn>
-        <ElTableColumn label="状态" width="140">
-          <template #default="{ row }">
-            <ElTag :type="runStatusType(row.status)" effect="light">{{ runStatusLabel(row.status) }}</ElTag>
-          </template>
-        </ElTableColumn>
-        <ElTableColumn label="计划版本" width="100" align="center">
-          <template #default="{ row }">V{{ row.planVersion }}</template>
-        </ElTableColumn>
-        <ElTableColumn label="来源" width="120">
-          <template #default="{ row }">{{ row.invocationSource === 'SUPERVISOR' ? '站内编排' : 'MCP 客户端' }}</template>
-        </ElTableColumn>
-        <ElTableColumn label="创建时间" width="180">
-          <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
-        </ElTableColumn>
-        <ElTableColumn label="操作" width="100" fixed="right" align="center">
-          <template #default="{ row }">
-            <ElButton link type="primary" @click="openDetail(row)">查看计划</ElButton>
-          </template>
-        </ElTableColumn>
-        <template #empty>
-          <ElEmpty description="当前项目还没有 Supervisor 运行记录" />
+          </div>
         </template>
-      </ElTable>
+      </div>
+
+      <div v-if="canRun" class="chat-composer">
+        <div class="context-select-row">
+          <ElSelect v-model="createForm.requirementId" clearable filterable placeholder="关联需求（可选）">
+            <ElOption
+              v-for="item in requirements"
+              :key="item.id"
+              :label="`${item.title} · V${item.version}`"
+              :value="item.id"
+            />
+          </ElSelect>
+          <ElSelect v-model="createForm.knowledgeBaseId" clearable filterable placeholder="关联知识库（可选）">
+            <ElOption v-for="item in knowledgeBases" :key="item.id" :label="item.name" :value="item.id" />
+          </ElSelect>
+          <ElSelect v-model="createForm.moduleId" clearable filterable placeholder="关联模块（可选）">
+            <ElOption v-for="item in modules" :key="item.id" :label="item.name" :value="item.id" />
+          </ElSelect>
+        </div>
+        <div class="composer-row">
+          <ElInput
+            v-model="createForm.goal"
+            type="textarea"
+            :rows="3"
+            maxlength="2000"
+            placeholder="例如：分析文章发布需求的覆盖情况，并为未覆盖需求点生成补充用例计划"
+            @keydown.ctrl.enter="submitCreate"
+          />
+          <ElButton type="primary" :loading="creating" :disabled="!createForm.goal.trim()" @click="submitCreate">
+            发送
+          </ElButton>
+        </div>
+      </div>
 
       <div class="pagination-row">
         <ElPagination
@@ -384,7 +485,10 @@ onBeforeUnmount(() => {
           :layout="isMobile ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper'"
           :page-sizes="[10, 20, 50]"
           @current-change="getData()"
-          @size-change="searchParams.current = 1; getData()"
+          @size-change="
+            searchParams.current = 1;
+            getData();
+          "
         />
       </div>
     </ElCard>
@@ -411,14 +515,30 @@ onBeforeUnmount(() => {
         <div class="context-title">可选业务上下文</div>
         <div class="context-description">填写已有对象编号可减少模型猜测；不涉及的字段保持为空。</div>
         <div class="context-grid">
-          <ElFormItem label="需求编号">
-            <ElInputNumber v-model="createForm.requirementId" :min="1" :controls="false" placeholder="例如 18" />
+          <ElFormItem label="关联需求">
+            <ElSelect v-model="createForm.requirementId" clearable filterable placeholder="按需求名称选择">
+              <ElOption
+                v-for="item in requirements"
+                :key="item.id"
+                :label="`${item.title} · V${item.version}`"
+                :value="item.id"
+              />
+            </ElSelect>
           </ElFormItem>
-          <ElFormItem label="知识库编号">
-            <ElInputNumber v-model="createForm.knowledgeBaseId" :min="1" :controls="false" placeholder="例如 3" />
+          <ElFormItem label="关联知识库">
+            <ElSelect v-model="createForm.knowledgeBaseId" clearable filterable placeholder="按知识库名称选择">
+              <ElOption v-for="item in knowledgeBases" :key="item.id" :label="item.name" :value="item.id" />
+            </ElSelect>
           </ElFormItem>
-          <ElFormItem label="模块编号">
-            <ElInputNumber v-model="createForm.moduleId" :min="1" :controls="false" placeholder="例如 6" />
+          <ElFormItem label="关联模块">
+            <ElSelect v-model="createForm.moduleId" clearable filterable placeholder="按模块名称选择">
+              <ElOption
+                v-for="item in modules"
+                :key="item.id"
+                :label="`${item.name}（${item.code}）`"
+                :value="item.id"
+              />
+            </ElSelect>
           </ElFormItem>
         </div>
       </ElForm>
@@ -449,22 +569,48 @@ onBeforeUnmount(() => {
       <div v-loading="detailLoading">
         <template v-if="activeRun">
           <div class="summary-grid">
-            <div class="summary-item"><span>计划版本</span><strong>V{{ activeRun.planVersion }}</strong></div>
-            <div class="summary-item"><span>当前步骤</span><strong>{{ activeRun.currentStepNo || '-' }}</strong></div>
-            <div class="summary-item"><span>模型编号</span><strong>{{ activeRun.modelId ?? '-' }}</strong></div>
-            <div class="summary-item"><span>创建时间</span><strong>{{ formatTime(activeRun.createdAt) }}</strong></div>
+            <div class="summary-item">
+              <span>计划版本</span>
+              <strong>V{{ activeRun.planVersion }}</strong>
+            </div>
+            <div class="summary-item">
+              <span>当前步骤</span>
+              <strong>{{ activeRun.currentStepNo || '-' }}</strong>
+            </div>
+            <div class="summary-item">
+              <span>模型编号</span>
+              <strong>{{ activeRun.modelId ?? '-' }}</strong>
+            </div>
+            <div class="summary-item">
+              <span>创建时间</span>
+              <strong>{{ formatTime(activeRun.createdAt) }}</strong>
+            </div>
           </div>
 
-          <ElAlert v-if="activeRun.errorMessage" :title="activeRun.errorMessage" type="error" :closable="false" show-icon />
+          <ElAlert
+            v-if="activeRun.errorMessage"
+            :title="activeRun.errorMessage"
+            type="error"
+            :closable="false"
+            show-icon
+          />
 
           <ElCollapse
             v-if="hasObjectContent(activeRun.contextSnapshot) || hasObjectContent(activeRun.resultSummary)"
             class="audit-collapse"
           >
-            <ElCollapseItem v-if="hasObjectContent(activeRun.contextSnapshot)" title="查看规划上下文快照" name="context">
+            <ElCollapseItem
+              v-if="hasObjectContent(activeRun.contextSnapshot)"
+              title="查看规划上下文快照"
+              name="context"
+            >
               <pre>{{ JSON.stringify(activeRun.contextSnapshot, null, 2) }}</pre>
             </ElCollapseItem>
-            <ElCollapseItem v-if="hasObjectContent(activeRun.resultSummary)" title="查看运行结果摘要" name="result-summary">
+            <ElCollapseItem
+              v-if="hasObjectContent(activeRun.resultSummary)"
+              title="查看运行结果摘要"
+              name="result-summary"
+            >
               <pre>{{ JSON.stringify(activeRun.resultSummary, null, 2) }}</pre>
             </ElCollapseItem>
           </ElCollapse>
@@ -514,8 +660,9 @@ onBeforeUnmount(() => {
                 </ElCollapse>
                 <ElAlert v-if="step.errorMessage" :title="step.errorMessage" type="error" :closable="false" />
                 <div v-if="step.approvalDecision" class="approval-record">
-                  审批结果：{{ step.approvalDecision === 'APPROVED' ? '已批准' : '已驳回' }}
-                  · 审批人 #{{ step.approvalDecidedBy ?? '-' }}
+                  审批结果：{{ step.approvalDecision === 'APPROVED' ? '已批准' : '已驳回' }} · 审批人 #{{
+                    step.approvalDecidedBy ?? '-'
+                  }}
                   · {{ formatTime(step.approvalDecidedAt) }}
                 </div>
                 <div v-if="step.status === 'WAITING_APPROVAL' && canApprove" class="approval-actions">
@@ -576,6 +723,77 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.supervisor-chat-thread {
+  min-height: 360px;
+  max-height: calc(100vh - 430px);
+  overflow-y: auto;
+  padding: 20px 12px;
+  background: var(--el-fill-color-lighter);
+  border-radius: 12px;
+}
+
+.chat-message {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.chat-message-user {
+  justify-content: flex-end;
+}
+
+.chat-bubble {
+  max-width: min(760px, 80%);
+  padding: 12px 16px;
+  line-height: 1.7;
+  border-radius: 14px;
+}
+
+.chat-message-user .chat-bubble {
+  color: #fff;
+  background: var(--el-color-primary);
+  border-bottom-right-radius: 4px;
+}
+
+.chat-avatar {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
+  border-radius: 50%;
+  place-items: center;
+}
+
+.assistant-bubble {
+  background: var(--el-bg-color);
+  border: 1px solid var(--el-border-color-lighter);
+  border-bottom-left-radius: 4px;
+}
+
+.assistant-heading {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.chat-composer {
+  padding-top: 16px;
+}
+
+.context-select-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.composer-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
 .supervisor-page {
   display: flex;
   flex-direction: column;

@@ -67,6 +67,7 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   plugin_tables_vtable: () => import("@/views/plugin/tables/vtable/index.vue"),
   plugin_typeit: () => import("@/views/plugin/typeit/index.vue"),
   plugin_video: () => import("@/views/plugin/video/index.vue"),
+  "project_data-query": () => import("@/views/project/data-query/index.vue"),
   project_environments: () => import("@/views/project/environments/index.vue"),
   project_info: () => import("@/views/project/info/index.vue"),
   project_members: () => import("@/views/project/members/index.vue"),

@@ -328,11 +328,16 @@ class ToolCenterService:
             raise ConflictException("当前状态不能重新生成预览")
         task.preview_data = preview
         task.preview_hash = self.canonical_hash(preview)
-        task.status = (
-            ToolTaskStatus.PENDING_APPROVAL.value
-            if task.risk_level in {ToolRisk.MEDIUM.value, ToolRisk.HIGH.value}
-            else ToolTaskStatus.PREVIEWED.value
-        )
+        # 文件预览已经能发现字段错误时，不能仍把任务标为“可执行”。
+        # 保持 DRAFT 让页面只显示预览入口，用户修正或重新创建任务后再执行。
+        if preview.get("validation_errors"):
+            task.status = ToolTaskStatus.DRAFT.value
+        else:
+            task.status = (
+                ToolTaskStatus.PENDING_APPROVAL.value
+                if task.risk_level in {ToolRisk.MEDIUM.value, ToolRisk.HIGH.value}
+                else ToolTaskStatus.PREVIEWED.value
+            )
         self.repository.add(
             ToolExecutionLog(
                 task_id=task.id, stage="PREVIEW", message="已生成只读预览", details={"preview_hash": task.preview_hash}
